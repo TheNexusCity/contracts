@@ -9,10 +9,8 @@ import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
 import '@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol';
 import '@openzeppelin/contracts/token/ERC721/extensions/IERC721Enumerable.sol';
 import '@openzeppelin/contracts/utils/Address.sol';
-import '@openzeppelin/contracts/utils/Context.sol';
 import '@openzeppelin/contracts/utils/Strings.sol';
 import '@openzeppelin/contracts/utils/introspection/ERC165.sol';
-import "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @title IERC2981Royalties
 /// @dev Interface for the ERC2981 - Token Royalty standard
@@ -40,7 +38,7 @@ interface IERC2981Royalties {
  * Assumes that an owner cannot have more than the 2**128 - 1 (max value of uint128) of supply
  */
 
-contract Cryptosabers is Context, Ownable, ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IERC2981Royalties {
+contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IERC2981Royalties {
     using Address for address;
     using Strings for uint256;
 
@@ -59,6 +57,8 @@ contract Cryptosabers is Context, Ownable, ERC165, IERC721, IERC721Metadata, IER
 
     string private _uriSuffix = '';
 
+    bool _anyoneCanMint = false;
+    
     struct TokenOwnership {
         address addr;
         uint64 startTimestamp;
@@ -67,6 +67,53 @@ contract Cryptosabers is Context, Ownable, ERC165, IERC721, IERC721Metadata, IER
     struct AddressData {
         uint128 balance;
         uint128 numberMinted;
+    }
+
+
+    address private _owner;
+
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+
+    /**
+     * @dev Leaves the contract without owner. It will not be possible to call
+     * `onlyOwner` functions anymore. Can only be called by the current owner.
+     *
+     * NOTE: Renouncing ownership will leave the contract without an owner,
+     * thereby removing any functionality that is only available to the owner.
+     */
+    function renounceOwnership() public virtual onlyOwner {
+        _owner = address(0);
+    }
+
+    /**
+     * @dev Initializes the contract setting the deployer as the initial owner.
+     */
+    constructor() {
+        _owner = msg.sender;
+    }
+
+    /**
+     * @dev Throws if called by any account other than the owner.
+     */
+    modifier onlyOwner() {
+        require(_owner == msg.sender, "Ownable: caller is not the owner");
+        _;
+    }
+
+    modifier onlyValidAccess(
+        uint8 _v,
+        bytes32 _r,
+        bytes32 _s
+    ) {
+        bytes32 hash = keccak256(abi.encodePacked(this, msg.sender));
+        require(_owner == ecrecover(keccak256(abi.encodePacked('\x19Ethereum Signed Message:\n32', hash)), _v, _r, _s) || 
+        _owner == msg.sender ||
+        _anyoneCanMint, "invalidaccess");
+        _;
+    }
+
+    function setOpenMint(bool anyoneCanMint) onlyOwner public {
+        _anyoneCanMint = anyoneCanMint;
     }
 
     function royaltyInfo(uint256, uint256 value)
@@ -79,7 +126,7 @@ contract Cryptosabers is Context, Ownable, ERC165, IERC721, IERC721Metadata, IER
         receiver = treasuryAddress;
 
         // 10% royalty
-        royaltyAmount = (value * 10000) / 10000;
+        royaltyAmount = (value * 1000) / 10000;
     }
 
     uint256 internal currentIndex;
@@ -117,8 +164,8 @@ contract Cryptosabers is Context, Ownable, ERC165, IERC721, IERC721Metadata, IER
      * This read function is O(totalSupply). If calling from a separate contract, be sure to test gas first.
      * It may also degrade with extremely large collection sizes (e.g >> 10000), test for your use case.
      */
-    function tokenOfOwnerByIndex(address owner, uint256 index) public view override returns (uint256) {
-        require(index < balanceOf(owner), 'oIdx>bnds'); //  owner index out of bounds
+    function tokenOfOwnerByIndex(address tokenOwner, uint256 index) public view override returns (uint256) {
+        require(index < balanceOf(tokenOwner), 'oIdx>bnds'); //  owner index out of bounds
         uint256 tokenIdsIdx;
         address currOwnershipAddr;
 
@@ -129,7 +176,7 @@ contract Cryptosabers is Context, Ownable, ERC165, IERC721, IERC721Metadata, IER
                 if (ownership.addr != address(0)) {
                     currOwnershipAddr = ownership.addr;
                 }
-                if (currOwnershipAddr == owner) {
+                if (currOwnershipAddr == tokenOwner) {
                     if (tokenIdsIdx == index) {
                         return i;
                     }
@@ -214,11 +261,11 @@ contract Cryptosabers is Context, Ownable, ERC165, IERC721, IERC721Metadata, IER
         return bytes(_baseURI).length != 0 ? string(abi.encodePacked(_baseURI, tokenId.toString(), _uriSuffix)) : '';
     }
 
-    function setBaseURI (string memory baseURI) public onlyOwner {
+    function setBaseURI(string memory baseURI) public onlyOwner {
         _baseURI = baseURI;
     }
 
-      function setUriSuffix(string memory uriSuffix) public onlyOwner {
+    function setUriSuffix(string memory uriSuffix) public onlyOwner {
         _uriSuffix = uriSuffix;
     }
 
@@ -230,7 +277,7 @@ contract Cryptosabers is Context, Ownable, ERC165, IERC721, IERC721Metadata, IER
         require(to != owner, 'notowner'); //  approval to current owner
 
         require(
-            _msgSender() == owner || isApprovedForAll(owner, _msgSender()),
+            msg.sender == owner || isApprovedForAll(owner, msg.sender),
             'notapproved' //  approve caller is not owner nor approved for all
         );
 
@@ -250,10 +297,10 @@ contract Cryptosabers is Context, Ownable, ERC165, IERC721, IERC721Metadata, IER
      * @dev See {IERC721-setApprovalForAll}.
      */
     function setApprovalForAll(address operator, bool approved) public override {
-        require(operator != _msgSender(), 'notcaller'); //  approve to caller
+        require(operator != msg.sender, 'notcaller'); //  approve to caller
 
-        _operatorApprovals[_msgSender()][operator] = approved;
-        emit ApprovalForAll(_msgSender(), operator, approved);
+        _operatorApprovals[msg.sender][operator] = approved;
+        emit ApprovalForAll(msg.sender, operator, approved);
     }
 
     /**
@@ -310,6 +357,14 @@ contract Cryptosabers is Context, Ownable, ERC165, IERC721, IERC721Metadata, IER
      */
     function _exists(uint256 tokenId) internal view returns (bool) {
         return tokenId < currentIndex;
+    }
+
+    function safeMint(address to, uint256 quantity, uint8 _v, bytes32 _r, bytes32 _s) onlyValidAccess(_v,_r,_s) public {
+        _safeMint(to, quantity);
+    }
+
+    function mint(address to, uint256 quantity, uint8 _v, bytes32 _r, bytes32 _s) onlyValidAccess(_v,_r,_s) public {
+        _mint(to, quantity, '', false);
     }
 
     function _safeMint(address to, uint256 quantity) internal {
@@ -406,9 +461,9 @@ contract Cryptosabers is Context, Ownable, ERC165, IERC721, IERC721Metadata, IER
     ) private {
         TokenOwnership memory prevOwnership = ownershipOf(tokenId);
 
-        bool isApprovedOrOwner = (_msgSender() == prevOwnership.addr ||
-            getApproved(tokenId) == _msgSender() ||
-            isApprovedForAll(prevOwnership.addr, _msgSender()));
+        bool isApprovedOrOwner = (msg.sender == prevOwnership.addr ||
+            getApproved(tokenId) == msg.sender ||
+            isApprovedForAll(prevOwnership.addr, msg.sender));
 
         require(isApprovedOrOwner, 'notapproved'); //  transfer caller is not owner nor approved
 
@@ -476,7 +531,7 @@ contract Cryptosabers is Context, Ownable, ERC165, IERC721, IERC721Metadata, IER
         bytes memory _data
     ) private returns (bool) {
         if (to.isContract()) {
-            try IERC721Receiver(to).onERC721Received(_msgSender(), from, tokenId, _data) returns (bytes4 retval) {
+            try IERC721Receiver(to).onERC721Received(msg.sender, from, tokenId, _data) returns (bytes4 retval) {
                 return retval == IERC721Receiver(to).onERC721Received.selector;
             } catch (bytes memory reason) {
                 if (reason.length == 0) {
