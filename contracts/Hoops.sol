@@ -38,7 +38,7 @@ interface IERC2981Royalties {
  * Assumes that an owner cannot have more than the 2**128 - 1 (max value of uint128) of supply
  */
 
-contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IERC2981Royalties {
+contract Hoops is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IERC2981Royalties {
     using Address for address;
     using Strings for uint256;
 
@@ -248,14 +248,14 @@ contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IE
      * @dev See {IERC721Metadata-name}.
      */
     function name() public view virtual override returns (string memory) {
-        return 'Cryptosabers';
+        return 'Hoops';
     }
 
     /**
      * @dev See {IERC721Metadata-symbol}.
      */
     function symbol() public view virtual override returns (string memory) {
-        return 'SABERS';
+        return 'HOOPS';
     }
 
     /**
@@ -278,7 +278,7 @@ contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IE
      * @dev See {IERC721-approve}.
      */
     function approve(address to, uint256 tokenId) public override {
-        address owner = Cryptosabers.ownerOf(tokenId);
+        address owner = Hoops.ownerOf(tokenId);
         require(to != owner, 'notowner'); //  approval to current owner
 
         require(
@@ -406,11 +406,8 @@ contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IE
         _mint(msg.sender, quantity, '', false);
     }
 
-    /**
-     * @dev See {IERC721Metadata-name}.
-     */
-    function seeTheVision() public pure returns (string memory) {
-        return 'thelake ==={============> vision';
+    function goat() public pure returns (string memory) {
+        return '"Greatness is defined by how much you want to put into what you do." - LeBron James';
     }
 
     /**
@@ -432,11 +429,9 @@ contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IE
         uint256 startTokenId = currentIndex;
         require(to != address(0), '0x'); // mint to the 0x0 address
         require(quantity != 0, 'q>0'); // quantity must be greater than 0
-        require(quantity <= 2, 'q<=2'); // quantity must be 2 or less
-        require(currentIndex <= 2022, 'noneleft'); // sold out
-        require(currentIndex + quantity <= 2022, 'oneleft'); // cannot mint more than maxIndex tokens
-
-        _beforeTokenTransfers(address(0), to, startTokenId, quantity);
+        require(quantity <= 5, 'q<=2'); // quantity must be 5 or less
+        require(currentIndex <= 10000, 'No Hoops left!'); // sold out
+        require(currentIndex + quantity <= 10000, 'Not enough Hoops left!'); // cannot mint more than maxIndex tokens
 
         // Overflows are incredibly unrealistic.
         // balance or numberMinted overflow if current value of either + quantity > 3.4e38 (2**128) - 1
@@ -464,8 +459,6 @@ contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IE
 
             currentIndex = updatedIndex;
         }
-
-        _afterTokenTransfers(address(0), to, startTokenId, quantity);
     }
 
     /**
@@ -494,8 +487,6 @@ contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IE
         require(prevOwnership.addr == from, 'badowner'); // transfer from incorrect owner
         require(to != address(0), '0x'); //  transfer to the zero address
 
-        _beforeTokenTransfers(from, to, tokenId, 1);
-
         // Clear approvals from the previous owner
         _approve(address(0), tokenId, prevOwnership.addr);
 
@@ -521,7 +512,6 @@ contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IE
         }
 
         emit Transfer(from, to, tokenId);
-        _afterTokenTransfers(from, to, tokenId, 1);
     }
 
     /**
@@ -570,42 +560,4 @@ contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IE
             return true;
         }
     }
-
-    /**
-     * @dev Hook that is called before a set of serially-ordered token ids are about to be transferred. This includes minting.
-     *
-     * startTokenId - the first token id to be transferred
-     * quantity - the amount to be transferred
-     *
-     * Calling conditions:
-     *
-     * - When `from` and `to` are both non-zero, ``from``'s `tokenId` will be
-     * transferred to `to`.
-     * - When `from` is zero, `tokenId` will be minted for `to`.
-     */
-    function _beforeTokenTransfers(
-        address from,
-        address to,
-        uint256 startTokenId,
-        uint256 quantity
-    ) internal virtual {}
-
-    /**
-     * @dev Hook that is called after a set of serially-ordered token ids have been transferred. This includes
-     * minting.
-     *
-     * startTokenId - the first token id to be transferred
-     * quantity - the amount to be transferred
-     *
-     * Calling conditions:
-     *
-     * - when `from` and `to` are both non-zero.
-     * - `from` and `to` are never both zero.
-     */
-    function _afterTokenTransfers(
-        address from,
-        address to,
-        uint256 startTokenId,
-        uint256 quantity
-    ) internal virtual {}
 }

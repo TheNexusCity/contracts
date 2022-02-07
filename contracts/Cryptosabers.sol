@@ -404,11 +404,11 @@ contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IE
         _mint(msg.sender, quantity, '', false);
     }
 
-    /**
-     * @dev See {IERC721Metadata-name}.
-     */
-    function seeTheVision() public pure returns (string memory) {
-        return 'thelake ==={============> vision';
+    function seeTheVision() public view returns (string memory) {
+        if (balanceOf(msg.sender) > 0) {
+            return 'thelake ==={============> vision';
+        }
+        return 'nothing happens';
     }
 
     /**
@@ -433,8 +433,6 @@ contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IE
         require(quantity <= 2, 'q<=2'); // quantity must be 2 or less
         require(currentIndex <= 2022, 'noneleft'); // sold out
         require(currentIndex + quantity <= 2022, 'oneleft'); // cannot mint more than maxIndex tokens
-
-        _beforeTokenTransfers(address(0), to, startTokenId, quantity);
 
         // Overflows are incredibly unrealistic.
         // balance or numberMinted overflow if current value of either + quantity > 3.4e38 (2**128) - 1
@@ -462,8 +460,6 @@ contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IE
 
             currentIndex = updatedIndex;
         }
-
-        _afterTokenTransfers(address(0), to, startTokenId, quantity);
     }
 
     /**
@@ -492,8 +488,6 @@ contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IE
         require(prevOwnership.addr == from, 'badowner'); // transfer from incorrect owner
         require(to != address(0), '0x'); //  transfer to the zero address
 
-        _beforeTokenTransfers(from, to, tokenId, 1);
-
         // Clear approvals from the previous owner
         _approve(address(0), tokenId, prevOwnership.addr);
 
@@ -519,7 +513,6 @@ contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IE
         }
 
         emit Transfer(from, to, tokenId);
-        _afterTokenTransfers(from, to, tokenId, 1);
     }
 
     /**
@@ -568,42 +561,4 @@ contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IE
             return true;
         }
     }
-
-    /**
-     * @dev Hook that is called before a set of serially-ordered token ids are about to be transferred. This includes minting.
-     *
-     * startTokenId - the first token id to be transferred
-     * quantity - the amount to be transferred
-     *
-     * Calling conditions:
-     *
-     * - When `from` and `to` are both non-zero, ``from``'s `tokenId` will be
-     * transferred to `to`.
-     * - When `from` is zero, `tokenId` will be minted for `to`.
-     */
-    function _beforeTokenTransfers(
-        address from,
-        address to,
-        uint256 startTokenId,
-        uint256 quantity
-    ) internal virtual {}
-
-    /**
-     * @dev Hook that is called after a set of serially-ordered token ids have been transferred. This includes
-     * minting.
-     *
-     * startTokenId - the first token id to be transferred
-     * quantity - the amount to be transferred
-     *
-     * Calling conditions:
-     *
-     * - when `from` and `to` are both non-zero.
-     * - `from` and `to` are never both zero.
-     */
-    function _afterTokenTransfers(
-        address from,
-        address to,
-        uint256 startTokenId,
-        uint256 quantity
-    ) internal virtual {}
 }

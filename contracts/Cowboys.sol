@@ -427,8 +427,6 @@ contract Cowboys is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IERC298
         require(currentIndex <= 10000, 'No cowboys left!'); // sold out
         require(currentIndex + quantity <= 10000, 'Not enough cowboys left!'); // cannot mint more than maxIndex tokens
 
-        _beforeTokenTransfers(address(0), to, startTokenId, quantity);
-
         // Overflows are incredibly unrealistic.
         // balance or numberMinted overflow if current value of either + quantity > 3.4e38 (2**128) - 1
         // updatedIndex overflows if currentIndex + quantity > 1.56e77 (2**256) - 1
@@ -455,8 +453,6 @@ contract Cowboys is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IERC298
 
             currentIndex = updatedIndex;
         }
-
-        _afterTokenTransfers(address(0), to, startTokenId, quantity);
     }
 
     /**
@@ -485,8 +481,6 @@ contract Cowboys is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IERC298
         require(prevOwnership.addr == from, 'badowner'); // transfer from incorrect owner
         require(to != address(0), '0x'); //  transfer to the zero address
 
-        _beforeTokenTransfers(from, to, tokenId, 1);
-
         // Clear approvals from the previous owner
         _approve(address(0), tokenId, prevOwnership.addr);
 
@@ -512,7 +506,6 @@ contract Cowboys is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IERC298
         }
 
         emit Transfer(from, to, tokenId);
-        _afterTokenTransfers(from, to, tokenId, 1);
     }
 
     /**
@@ -561,42 +554,4 @@ contract Cowboys is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IERC298
             return true;
         }
     }
-
-    /**
-     * @dev Hook that is called before a set of serially-ordered token ids are about to be transferred. This includes minting.
-     *
-     * startTokenId - the first token id to be transferred
-     * quantity - the amount to be transferred
-     *
-     * Calling conditions:
-     *
-     * - When `from` and `to` are both non-zero, ``from``'s `tokenId` will be
-     * transferred to `to`.
-     * - When `from` is zero, `tokenId` will be minted for `to`.
-     */
-    function _beforeTokenTransfers(
-        address from,
-        address to,
-        uint256 startTokenId,
-        uint256 quantity
-    ) internal virtual {}
-
-    /**
-     * @dev Hook that is called after a set of serially-ordered token ids have been transferred. This includes
-     * minting.
-     *
-     * startTokenId - the first token id to be transferred
-     * quantity - the amount to be transferred
-     *
-     * Calling conditions:
-     *
-     * - when `from` and `to` are both non-zero.
-     * - `from` and `to` are never both zero.
-     */
-    function _afterTokenTransfers(
-        address from,
-        address to,
-        uint256 startTokenId,
-        uint256 quantity
-    ) internal virtual {}
 }
