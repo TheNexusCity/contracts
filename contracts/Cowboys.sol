@@ -84,12 +84,8 @@ contract Cowboys is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IERC298
     }
 
     function withdraw() public onlyTreasurerOrOwner {
-        // This will transfer the remaining contract balance to the owner.
-        // Do not remove this otherwise you will not be able to withdraw the funds.
-        // =============================================================================
         (bool os, ) = payable(_treasuryAddress).call{value: address(this).balance}("");
         require(os);
-        // =============================================================================
     }
 
     /**
