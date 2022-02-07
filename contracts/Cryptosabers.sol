@@ -42,16 +42,7 @@ contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IE
     using Address for address;
     using Strings for uint256;
 
-    // TODO: Change me
-    address treasuryAddress = address(0x73E6347249e9254f2652C1dcfD2BE6551B63CA6f);
-
-    uint256 internal maxIndex = 2022;
-
-    // Token name
-    string private _name = 'Cryptosabers';
-
-    // Token symbol
-    string private _symbol = 'SABERS';
+    address _treasuryAddress;
 
     string private _baseURI = '';
 
@@ -87,14 +78,32 @@ contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IE
     /**
      * @dev Initializes the contract setting the deployer as the initial owner.
      */
-    constructor() {
+    constructor(address treasuryAddress) {
         _owner = msg.sender;
+        _treasuryAddress = treasuryAddress;
+    }
+
+    function withdraw() public onlyTreasurerOrOwner {
+        // This will transfer the remaining contract balance to the owner.
+        // Do not remove this otherwise you will not be able to withdraw the funds.
+        // =============================================================================
+        (bool os, ) = payable(_treasuryAddress).call{value: address(this).balance}("");
+        require(os);
+        // =============================================================================
     }
 
     /**
      * @dev Throws if called by any account other than the owner.
      */
     modifier onlyOwner() {
+        require(_owner == msg.sender, 'Ownable: caller is not the owner');
+        _;
+    }
+
+    /**
+     * @dev Throws if called by any account other than the owner or treasurer.
+     */
+        modifier onlyTreasurerOrOwner() {
         require(_owner == msg.sender, 'Ownable: caller is not the owner');
         _;
     }
@@ -124,11 +133,7 @@ contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IE
         override
         returns (address receiver, uint256 royaltyAmount)
     {
-        // TODO: CHANGE ME
-        receiver = treasuryAddress;
-
-        // 10% royalty
-        royaltyAmount = (value * 1000) / 10000;
+        return (_treasuryAddress, value / 10); // 10% royalty
     }
 
     uint256 internal currentIndex;
@@ -245,14 +250,14 @@ contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IE
      * @dev See {IERC721Metadata-name}.
      */
     function name() public view virtual override returns (string memory) {
-        return _name;
+        return 'Cryptosabers';
     }
 
     /**
      * @dev See {IERC721Metadata-symbol}.
      */
     function symbol() public view virtual override returns (string memory) {
-        return _symbol;
+        return 'SABERS';
     }
 
     /**
@@ -430,8 +435,8 @@ contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IE
         require(to != address(0), '0x'); // mint to the 0x0 address
         require(quantity != 0, 'q>0'); // quantity must be greater than 0
         require(quantity <= 2, 'q<=2'); // quantity must be 2 or less
-        require(currentIndex <= maxIndex, 'noneleft'); // sold out
-        require(currentIndex + quantity <= maxIndex, 'oneleft'); // cannot mint more than maxIndex tokens
+        require(currentIndex <= 2022, 'noneleft'); // sold out
+        require(currentIndex + quantity <= 2022, 'oneleft'); // cannot mint more than maxIndex tokens
 
         _beforeTokenTransfers(address(0), to, startTokenId, quantity);
 
