@@ -58,7 +58,7 @@ contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IE
     string private _uriSuffix = '';
 
     bool _anyoneCanMint = false;
-    
+
     struct TokenOwnership {
         address addr;
         uint64 startTimestamp;
@@ -68,7 +68,6 @@ contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IE
         uint128 balance;
         uint128 numberMinted;
     }
-
 
     address private _owner;
 
@@ -81,8 +80,8 @@ contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IE
      * NOTE: Renouncing ownership will leave the contract without an owner,
      * thereby removing any functionality that is only available to the owner.
      */
-    function renounceOwnership() public virtual onlyOwner {
-        _owner = address(0);
+    function transferOwnership(address owner) public virtual onlyOwner {
+        _owner = owner;
     }
 
     /**
@@ -96,7 +95,7 @@ contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IE
      * @dev Throws if called by any account other than the owner.
      */
     modifier onlyOwner() {
-        require(_owner == msg.sender, "Ownable: caller is not the owner");
+        require(_owner == msg.sender, 'Ownable: caller is not the owner');
         _;
     }
 
@@ -106,13 +105,16 @@ contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IE
         bytes32 _s
     ) {
         bytes32 hash = keccak256(abi.encodePacked(this, msg.sender));
-        require(_owner == ecrecover(keccak256(abi.encodePacked('\x19Ethereum Signed Message:\n32', hash)), _v, _r, _s) || 
-        _owner == msg.sender ||
-        _anyoneCanMint, "invalidaccess");
+        require(
+            _owner == ecrecover(keccak256(abi.encodePacked('\x19Ethereum Signed Message:\n32', hash)), _v, _r, _s) ||
+                _owner == msg.sender ||
+                _anyoneCanMint,
+            'invalidaccess'
+        );
         _;
     }
 
-    function setOpenMint(bool anyoneCanMint) onlyOwner public {
+    function setOpenMint(bool anyoneCanMint) public onlyOwner {
         _anyoneCanMint = anyoneCanMint;
     }
 
@@ -359,12 +361,14 @@ contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IE
         return tokenId < currentIndex;
     }
 
-    function safeMint(address to, uint256 quantity, uint8 _v, bytes32 _r, bytes32 _s) onlyValidAccess(_v,_r,_s) public {
-        _safeMint(to, quantity);
-    }
-
-    function mint(address to, uint256 quantity, uint8 _v, bytes32 _r, bytes32 _s) onlyValidAccess(_v,_r,_s) public {
-        _mint(to, quantity, '', false);
+    // mint for self with a whitelist validation
+    function safeMint(
+        uint256 quantity,
+        uint8 _v,
+        bytes32 _r,
+        bytes32 _s
+    ) public onlyValidAccess(_v, _r, _s) {
+        _safeMint(msg.sender, quantity);
     }
 
     function _safeMint(address to, uint256 quantity) internal {
@@ -387,6 +391,23 @@ contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IE
         bytes memory _data
     ) internal {
         _mint(to, quantity, _data, true);
+    }
+
+    // Mint for self without a whitelist validation
+    function mint(
+        uint256 quantity,
+        uint8 _v,
+        bytes32 _r,
+        bytes32 _s
+    ) public onlyValidAccess(_v, _r, _s) {
+        _mint(msg.sender, quantity, '', false);
+    }
+
+    /**
+     * @dev See {IERC721Metadata-name}.
+     */
+    function seeTheVision() public pure returns (string memory) {
+        return 'thelake ==={============> vision';
     }
 
     /**
