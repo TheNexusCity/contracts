@@ -84,7 +84,7 @@ contract Cowboys is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IERC298
     }
 
     function withdraw() public onlyTreasurerOrOwner {
-        (bool os, ) = payable(_treasuryAddress).call{value: address(this).balance}("");
+        (bool os, ) = payable(_treasuryAddress).call{value: address(this).balance}('');
         require(os);
     }
 
@@ -99,7 +99,7 @@ contract Cowboys is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IERC298
     /**
      * @dev Throws if called by any account other than the owner or treasurer.
      */
-        modifier onlyTreasurerOrOwner() {
+    modifier onlyTreasurerOrOwner() {
         require(_owner == msg.sender, 'Ownable: caller is not the owner');
         _;
     }
