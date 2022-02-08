@@ -48,6 +48,10 @@ contract Cowboys is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IERC298
 
     string private _uriSuffix = '';
 
+    uint256 _mintPrice = .088 ether;
+
+    uint256 _maxMintQuantity = 10;
+
     bool _anyoneCanMint = false;
 
     struct TokenOwnership {
@@ -61,6 +65,10 @@ contract Cowboys is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IERC298
     }
 
     address private _owner;
+
+    function getMintPrice() public view returns (uint256) {
+        return _mintPrice;
+    }
 
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
@@ -92,7 +100,7 @@ contract Cowboys is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IERC298
      * @dev Throws if called by any account other than the owner.
      */
     modifier onlyOwner() {
-        require(_owner == msg.sender, 'Ownable: caller is not the owner');
+        require(_owner == msg.sender, 'Caller is not the owner');
         _;
     }
 
@@ -100,7 +108,7 @@ contract Cowboys is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IERC298
      * @dev Throws if called by any account other than the owner or treasurer.
      */
     modifier onlyTreasurerOrOwner() {
-        require(_owner == msg.sender, 'Ownable: caller is not the owner');
+        require(_owner == msg.sender, 'Caller is not the owner or treasurer');
         _;
     }
 
@@ -158,7 +166,7 @@ contract Cowboys is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IERC298
      * @dev See {IERC721Enumerable-tokenByIndex}.
      */
     function tokenByIndex(uint256 index) public view override returns (uint256) {
-        require(index < currentIndex, 'idx>bnds'); // global index out of bounds
+        require(index < currentIndex, 'Global index out of bounds');
         return index;
     }
 
@@ -168,7 +176,7 @@ contract Cowboys is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IERC298
      * It may also degrade with extremely large collection sizes (e.g >> 10000), test for your use case.
      */
     function tokenOfOwnerByIndex(address tokenOwner, uint256 index) public view override returns (uint256) {
-        require(index < balanceOf(tokenOwner), 'oIdx>bnds'); //  owner index out of bounds
+        require(index < balanceOf(tokenOwner), 'Owner index out of bounds>bnds');
         uint256 tokenIdsIdx;
         address currOwnershipAddr;
 
@@ -246,7 +254,7 @@ contract Cowboys is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IERC298
      * @dev See {IERC721Metadata-name}.
      */
     function name() public view virtual override returns (string memory) {
-        return 'Cowboys';
+        return 'Space Cowboys';
     }
 
     /**
@@ -362,46 +370,35 @@ contract Cowboys is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IERC298
         return tokenId < currentIndex;
     }
 
-    // mint for self with a whitelist validation
-    function safeMint(
-        uint256 quantity,
-        uint8 _v,
-        bytes32 _r,
-        bytes32 _s
-    ) public onlyValidAccess(_v, _r, _s) {
-        _safeMint(msg.sender, quantity);
-    }
-
-    function _safeMint(address to, uint256 quantity) internal {
-        _safeMint(to, quantity, '');
-    }
-
-    /**
-     * @dev Safely mints `quantity` tokens and transfers them to `to`.
-     *
-     * Requirements:
-     *
-     * - If `to` refers to a smart contract, it must implement {IERC721Receiver-onERC721Received}, which is called for each safe transfer.
-     * - `quantity` must be greater than 0.
-     *
-     * Emits a {Transfer} event.
-     */
-    function _safeMint(
-        address to,
-        uint256 quantity,
-        bytes memory _data
-    ) internal {
-        _mint(to, quantity, _data, true);
+    // Mint for self without a whitelist validation
+    function mint(uint256 quantity) public payable {
+        _mint(msg.sender, quantity, 0, 0, 0);
     }
 
     // Mint for self without a whitelist validation
+    function mintForAddress(uint256 quantity, address to) public payable {
+        _mint(to, quantity, 0, 0, 0);
+    }
+
+    // Mint for self without a whitelist validation
+    function mintForAddress(
+        uint256 quantity,
+        address to,
+        uint8 _v,
+        bytes32 _r,
+        bytes32 _s
+    ) public payable onlyValidAccess(_v, _r, _s) {
+        _mint(to, quantity, _v, _r, _s);
+    }
+
+    // Mint for self with a whitelist validation
     function mint(
         uint256 quantity,
         uint8 _v,
         bytes32 _r,
         bytes32 _s
-    ) public onlyValidAccess(_v, _r, _s) {
-        _mint(msg.sender, quantity, '', false);
+    ) public payable {
+        _mint(msg.sender, quantity, _v, _r, _s);
     }
 
     /**
@@ -417,19 +414,18 @@ contract Cowboys is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IERC298
     function _mint(
         address to,
         uint256 quantity,
-        bytes memory _data,
-        bool safe
-    ) internal {
+        uint8 _v,
+        bytes32 _r,
+        bytes32 _s
+    ) internal onlyValidAccess(_v, _r, _s) {
         uint256 startTokenId = currentIndex;
-        require(to != address(0), '0x'); // mint to the 0x0 address
-        require(quantity != 0, 'q>0'); // quantity must be greater than 0
-        require(quantity <= 2, 'q<=5'); // quantity must be 5 or less
-        require(currentIndex <= 10000, 'No cowboys left!'); // sold out
-        require(currentIndex + quantity <= 10000, 'Not enough cowboys left!'); // cannot mint more than maxIndex tokens
+        require(to != address(0), 'Cannot send to 0x0'); // mint to the 0x0 address
+        require(quantity != 0, 'Quantity cannot be 0'); // quantity must be greater than 0
+        require(quantity <= _maxMintQuantity, 'Quantity exceeds mint max'); // quantity must be 5 or less
+        require(msg.value >= _mintPrice * quantity, 'Insufficient funds!');
+        require(currentIndex <= 10000, 'No Hoops left!'); // sold out
+        require(currentIndex + quantity <= 10000, 'Not enough Hoops left!'); // cannot mint more than maxIndex tokens
 
-        // Overflows are incredibly unrealistic.
-        // balance or numberMinted overflow if current value of either + quantity > 3.4e38 (2**128) - 1
-        // updatedIndex overflows if currentIndex + quantity > 1.56e77 (2**256) - 1
         unchecked {
             _addressData[to].balance += uint128(quantity);
             _addressData[to].numberMinted += uint128(quantity);
@@ -441,12 +437,10 @@ contract Cowboys is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IERC298
 
             for (uint256 i; i < quantity; i++) {
                 emit Transfer(address(0), to, updatedIndex);
-                if (safe) {
-                    require(
-                        _checkOnERC721Received(address(0), to, updatedIndex, _data),
-                        'not721' // transfer to non ERC721Receiver implementer
-                    );
-                }
+                require(
+                    _checkOnERC721Received(address(0), to, updatedIndex, ''),
+                    'Not ERC721Receiver' // transfer to non ERC721Receiver implementer
+                );
 
                 updatedIndex++;
             }

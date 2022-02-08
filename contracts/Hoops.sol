@@ -27,6 +27,22 @@ interface IERC2981Royalties {
         returns (address _receiver, uint256 _royaltyAmount);
 }
 
+// mint price of hoops
+// whitelist -- .0824
+// mint price -- .1
+// mint max -- 20
+
+// Hoops
+// HOOPS
+
+// royalty percentage - 10%
+
+// owner address + seed phrase + private key
+
+// art editable
+
+// 
+
 /**
  * @dev Implementation of https://eips.ethereum.org/EIPS/eip-721[ERC721] Non-Fungible Token Standard, including
  * the Metadata and Enumerable extension. Built to optimize for lower gas during batch mints.
@@ -48,6 +64,12 @@ contract Hoops is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IERC2981R
 
     string private _uriSuffix = '';
 
+    uint private _whitelistedMintPrice = 0.0824 ether;
+
+    uint private _mintPrice = 0.1 ether;
+
+    uint private _maxMintQuantity = 20;
+
     bool _anyoneCanMint = false;
 
     struct TokenOwnership {
@@ -63,6 +85,11 @@ contract Hoops is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IERC2981R
     address private _owner;
 
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+
+
+    function getMintPrice() public view returns (uint) {
+        return _anyoneCanMint ? _mintPrice : _whitelistedMintPrice;
+    }
 
     /**
      * @dev Leaves the contract without owner. It will not be possible to call
@@ -364,50 +391,45 @@ contract Hoops is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IERC2981R
         return tokenId < currentIndex;
     }
 
-    // mint for self with a whitelist validation
-    function safeMint(
-        uint256 quantity,
-        uint8 _v,
-        bytes32 _r,
-        bytes32 _s
-    ) public onlyValidAccess(_v, _r, _s) {
-        _safeMint(msg.sender, quantity);
-    }
-
-    function _safeMint(address to, uint256 quantity) internal {
-        _safeMint(to, quantity, '');
-    }
-
-    /**
-     * @dev Safely mints `quantity` tokens and transfers them to `to`.
-     *
-     * Requirements:
-     *
-     * - If `to` refers to a smart contract, it must implement {IERC721Receiver-onERC721Received}, which is called for each safe transfer.
-     * - `quantity` must be greater than 0.
-     *
-     * Emits a {Transfer} event.
-     */
-    function _safeMint(
-        address to,
-        uint256 quantity,
-        bytes memory _data
-    ) internal {
-        _mint(to, quantity, _data, true);
+    function goat() public pure returns (string memory) {
+        return '"Greatness is defined by how much you want to put into what you do." - LeBron James';
     }
 
     // Mint for self without a whitelist validation
+    function mint(
+        uint256 quantity
+    ) public payable {
+        _mint(msg.sender, quantity, 0, 0, 0);
+    }
+
+    // Mint for self without a whitelist validation
+    function mintForAddress(
+        uint256 quantity,
+        address to
+    ) public payable {
+        _mint(to, quantity, 0, 0, 0);
+    }
+
+
+    // Mint for self without a whitelist validation
+    function mintForAddress(
+        uint256 quantity,
+        address to,
+        uint8 _v,
+        bytes32 _r,
+        bytes32 _s
+    ) public payable onlyValidAccess(_v, _r, _s) {
+        _mint(to, quantity, _v, _r, _s);
+    }
+
+    // Mint for self with a whitelist validation
     function mint(
         uint256 quantity,
         uint8 _v,
         bytes32 _r,
         bytes32 _s
-    ) public onlyValidAccess(_v, _r, _s) {
-        _mint(msg.sender, quantity, '', false);
-    }
-
-    function goat() public pure returns (string memory) {
-        return '"Greatness is defined by how much you want to put into what you do." - LeBron James';
+    ) public payable {
+        _mint(msg.sender, quantity, _v, _r, _s);
     }
 
     /**
@@ -423,19 +445,18 @@ contract Hoops is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IERC2981R
     function _mint(
         address to,
         uint256 quantity,
-        bytes memory _data,
-        bool safe
-    ) internal {
+        uint8 _v,
+        bytes32 _r,
+        bytes32 _s
+    ) internal onlyValidAccess(_v, _r, _s) {
         uint256 startTokenId = currentIndex;
-        require(to != address(0), '0x'); // mint to the 0x0 address
-        require(quantity != 0, 'q>0'); // quantity must be greater than 0
-        require(quantity <= 5, 'q<=2'); // quantity must be 5 or less
+        require(to != address(0), 'Cannot send to 0x0'); // mint to the 0x0 address
+        require(quantity != 0, 'Quantity cannot be 0'); // quantity must be greater than 0
+        require(quantity <= _maxMintQuantity, 'Quantity exceeds mint max'); // quantity must be 5 or less
+        require(msg.value >= (_anyoneCanMint ? _mintPrice : _whitelistedMintPrice) * quantity, "Insufficient funds!");
         require(currentIndex <= 10000, 'No Hoops left!'); // sold out
         require(currentIndex + quantity <= 10000, 'Not enough Hoops left!'); // cannot mint more than maxIndex tokens
 
-        // Overflows are incredibly unrealistic.
-        // balance or numberMinted overflow if current value of either + quantity > 3.4e38 (2**128) - 1
-        // updatedIndex overflows if currentIndex + quantity > 1.56e77 (2**256) - 1
         unchecked {
             _addressData[to].balance += uint128(quantity);
             _addressData[to].numberMinted += uint128(quantity);
@@ -447,12 +468,10 @@ contract Hoops is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IERC2981R
 
             for (uint256 i; i < quantity; i++) {
                 emit Transfer(address(0), to, updatedIndex);
-                if (safe) {
                     require(
-                        _checkOnERC721Received(address(0), to, updatedIndex, _data),
-                        'not721' // transfer to non ERC721Receiver implementer
+                        _checkOnERC721Received(address(0), to, updatedIndex, ''),
+                        'Not ERC721Receiver' // transfer to non ERC721Receiver implementer
                     );
-                }
 
                 updatedIndex++;
             }
