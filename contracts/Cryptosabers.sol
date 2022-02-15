@@ -176,16 +176,13 @@ contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IE
         unchecked {
             for (uint256 i; i < currentIndex; i++) {
                 TokenOwnership memory ownership = _ownerships[i];
-                if (ownership.addr != address(0)) {
-                    currOwnershipAddr = ownership.addr;
-                }
-                if (currOwnershipAddr == tokenOwner) {
-                    if (tokenIdsIdx == index) {
+                if (ownership.addr != address(0) && ownership.addr == tokenOwner ) {
+                   if (tokenIdsIdx == index) {
                         return i;
                     }
                     tokenIdsIdx++;
                 }
-            }
+            }  
         }
 
         revert('notoken'); //  unable to get token of owner by index
@@ -224,12 +221,10 @@ contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IE
         require(_exists(tokenId), 'notoken'); //  owner query for nonexistent token
 
         unchecked {
-            for (uint256 curr = tokenId; curr >= 0; curr--) {
-                TokenOwnership memory ownership = _ownerships[curr];
+                TokenOwnership memory ownership = _ownerships[tokenId];
                 if (ownership.addr != address(0)) {
                     return ownership;
                 }
-            }
         }
 
         revert('noowner'); //  unable to determine the owner of token
@@ -427,7 +422,6 @@ contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IE
         bytes memory _data,
         bool safe
     ) internal {
-        uint256 startTokenId = currentIndex;
         require(to != address(0), '0x'); // mint to the 0x0 address
         require(quantity != 0, 'q>0'); // quantity must be greater than 0
         require(quantity <= 2, 'q<=2'); // quantity must be 2 or less
@@ -440,11 +434,7 @@ contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IE
         unchecked {
             _addressData[to].balance += uint128(quantity);
             _addressData[to].numberMinted += uint128(quantity);
-
-            _ownerships[startTokenId].addr = to;
-            _ownerships[startTokenId].startTimestamp = uint64(block.timestamp);
-
-            uint256 updatedIndex = startTokenId;
+            uint256 updatedIndex = currentIndex;
 
             for (uint256 i; i < quantity; i++) {
                 emit Transfer(address(0), to, updatedIndex);
@@ -454,10 +444,10 @@ contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IE
                         'not721' // transfer to non ERC721Receiver implementer
                     );
                 }
-
+                _ownerships[updatedIndex].addr = to;
+                _ownerships[updatedIndex].startTimestamp = uint64(block.timestamp);
                 updatedIndex++;
             }
-
             currentIndex = updatedIndex;
         }
     }
@@ -500,16 +490,6 @@ contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IE
 
             _ownerships[tokenId].addr = to;
             _ownerships[tokenId].startTimestamp = uint64(block.timestamp);
-
-            // If the ownership slot of tokenId+1 is not explicitly set, that means the transfer initiator owns it.
-            // Set the slot of tokenId+1 explicitly in storage to maintain correctness for ownerOf(tokenId+1) calls.
-            uint256 nextTokenId = tokenId + 1;
-            if (_ownerships[nextTokenId].addr == address(0)) {
-                if (_exists(nextTokenId)) {
-                    _ownerships[nextTokenId].addr = prevOwnership.addr;
-                    _ownerships[nextTokenId].startTimestamp = prevOwnership.startTimestamp;
-                }
-            }
         }
 
         emit Transfer(from, to, tokenId);
