@@ -389,6 +389,13 @@ contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IE
         _mint(to, quantity, _data, true);
     }
 
+        // Mint for self without a whitelist validation
+    function mint(
+        uint256 quantity
+    ) public payable {
+        mint(quantity, 0, 0, 0);
+    }
+
     // Mint for self without a whitelist validation
     function mint(
         uint256 quantity,
