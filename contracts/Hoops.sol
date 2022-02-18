@@ -199,7 +199,7 @@ contract Hoops is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IERC2981R
     function tokenOfOwnerByIndex(address tokenOwner, uint256 index) public view override returns (uint256) {
         require(index < balanceOf(tokenOwner), 'oIdx>bnds'); //  owner index out of bounds
         uint256 tokenIdsIdx;
-        address currOwnershipAddr;
+        //ddress currOwnershipAddr;
 
         // Counter overflow is impossible as the loop breaks when uint256 i is equal to another uint256 numMintedSoFar.
         unchecked {
