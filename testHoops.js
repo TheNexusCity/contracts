@@ -101,9 +101,28 @@ describe('cowboy contract', async function()  {
         });
 
         it('Owner should transfer some hoops', async function()  {
-            await hoops.transferFrom(addr1,addr3,0);
-            //let result = hoops.ownershipOf(0);
-            //await expect(result.addr).to.be.be(addr3.address);
+            await hoops.transferFrom(addr1.address,addr3.address,1);
+            expect(await hoops.ownerOf(1)).to.equal(addr3.address);
+        });
+
+        it('Owner should approve all hoops on this wallet to other address', async function()  {
+            await hoops.setApprovalForAll(addr3.address,true);
+            await expect(hoops.connect(addr3).setOpenMint(true)).to.be.revertedWith('Ownable: caller is not the owner');
+        });
+
+        it('Treasury should approve other address to transfer token', async function()  {
+            await hoops.connect(addr2).approve(addr4.address,24);
+            expect(await hoops.connect(addr4).getApproved(24)).to.equal(addr4.address);
+        });
+
+        it('Address 3 should transfer owner hoops', async function()  {
+            await hoops.connect(addr3).transferFrom(addr1.address, addr3.address,2);
+            expect(await hoops.ownerOf(2)).to.equal(addr3.address);
+        });
+
+        it('Address 4 should transfer treasury hoops', async function()  {
+            await hoops.connect(addr4).transferFrom(addr2.address, addr4.address,24);
+            expect(await hoops.ownerOf(24)).to.equal(addr4.address);
         });
     });
 
@@ -118,7 +137,7 @@ describe('cowboy contract', async function()  {
             await hoops.connect(addr4)["mint(uint256)"](10,{ value: ethers.utils.parseEther("1") });
             const tknBal = await hoops.balanceOf(addr4.address);
             totalSp = totalSp + 10;
-            expect(tknBal).to.equal(10);
+            expect(tknBal).to.equal(11);
         });
 
         it('Should mints 1000 hoops', async function()  {
