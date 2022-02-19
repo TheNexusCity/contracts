@@ -102,7 +102,7 @@ describe('cowboy contract', async function()  {
 
         it('Owner should transfer some hoops', async function()  {
             await hoops.transferFrom(addr1.address,addr3.address,1);
-            expect(await hoops.ownerOf(1)).to.equal(addr3.address);
+            await expect(await hoops.ownerOf(1)).to.equal(addr3.address);
         });
 
         it('Owner should approve all hoops on this wallet to other address', async function()  {
@@ -112,21 +112,30 @@ describe('cowboy contract', async function()  {
 
         it('Treasury should approve other address to transfer token', async function()  {
             await hoops.connect(addr2).approve(addr4.address,24);
-            expect(await hoops.connect(addr4).getApproved(24)).to.equal(addr4.address);
+            await expect(await hoops.connect(addr4).getApproved(24)).to.equal(addr4.address);
         });
 
         it('Address 3 should transfer owner hoops', async function()  {
             await hoops.connect(addr3).transferFrom(addr1.address, addr3.address,2);
-            expect(await hoops.ownerOf(2)).to.equal(addr3.address);
+            await expect(await hoops.ownerOf(2)).to.equal(addr3.address);
+        });
+
+        it('Address 3 should safe transfer hoops', async function()  {
+            await hoops.connect(addr3)["safeTransferFrom(address,address,uint256)"](addr3.address, addr15.address,2);
+            await expect(await hoops.ownerOf(2)).to.equal(addr15.address);
         });
 
         it('Address 4 should transfer treasury hoops', async function()  {
             await hoops.connect(addr4).transferFrom(addr2.address, addr4.address,24);
-            expect(await hoops.ownerOf(24)).to.equal(addr4.address);
+            await expect(await hoops.ownerOf(24)).to.equal(addr4.address);
         });
     });
 
     describe('Functional test',async () => {
+        it('Owner should set the URL', async function()  {
+            await hoops.setUriSuffix("http:testurl.com");
+        });
+
         it('Royalty should return treasury address', async function()  {
             let result = await hoops.connect(addr3).royaltyInfo(10,100);
             expect( result.receiver, result.royaltyAmount).to.equal(addr2.address,10);
