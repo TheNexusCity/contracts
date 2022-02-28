@@ -170,19 +170,22 @@ contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IE
     function tokenOfOwnerByIndex(address tokenOwner, uint256 index) public view override returns (uint256) {
         require(index < balanceOf(tokenOwner), 'oIdx>bnds'); //  owner index out of bounds
         uint256 tokenIdsIdx;
-        //address currOwnershipAddr;
+        address currOwnershipAddr;
 
         // Counter overflow is impossible as the loop breaks when uint256 i is equal to another uint256 numMintedSoFar.
         unchecked {
             for (uint256 i; i < currentIndex; i++) {
                 TokenOwnership memory ownership = _ownerships[i];
-                if (ownership.addr != address(0) && ownership.addr == tokenOwner ) {
-                   if (tokenIdsIdx == index) {
+                if (ownership.addr != address(0)) {
+                    currOwnershipAddr = ownership.addr;
+                }
+                if (currOwnershipAddr == tokenOwner) {
+                    if (tokenIdsIdx == index) {
                         return i;
                     }
                     tokenIdsIdx++;
                 }
-            }  
+            }
         }
 
         revert('notoken'); //  unable to get token of owner by index
@@ -221,10 +224,12 @@ contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IE
         require(_exists(tokenId), 'notoken'); //  owner query for nonexistent token
 
         unchecked {
-                TokenOwnership memory ownership = _ownerships[tokenId];
+            for (uint256 curr = tokenId; curr >= 0; curr--) {
+                TokenOwnership memory ownership = _ownerships[curr];
                 if (ownership.addr != address(0)) {
                     return ownership;
                 }
+            }
         }
 
         revert('noowner'); //  unable to determine the owner of token
@@ -389,13 +394,6 @@ contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IE
         _mint(to, quantity, _data, true);
     }
 
-        // Mint for self without a whitelist validation
-    function mint(
-        uint256 quantity
-    ) public payable {
-        mint(quantity, 0, 0, 0);
-    }
-
     // Mint for self without a whitelist validation
     function mint(
         uint256 quantity,
@@ -429,11 +427,14 @@ contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IE
         bytes memory _data,
         bool safe
     ) internal {
+        uint256 startTokenId = currentIndex;
         require(to != address(0), '0x'); // mint to the 0x0 address
         require(quantity != 0, 'q>0'); // quantity must be greater than 0
         require(quantity <= 2, 'q<=2'); // quantity must be 2 or less
         require(currentIndex <= 2022, 'noneleft'); // sold out
         require(currentIndex + quantity <= 2022, 'oneleft'); // cannot mint more than maxIndex tokens
+
+        _beforeTokenTransfers(address(0), to, startTokenId, quantity);
 
         // Overflows are incredibly unrealistic.
         // balance or numberMinted overflow if current value of either + quantity > 3.4e38 (2**128) - 1
@@ -441,7 +442,11 @@ contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IE
         unchecked {
             _addressData[to].balance += uint128(quantity);
             _addressData[to].numberMinted += uint128(quantity);
-            uint256 updatedIndex = currentIndex;
+
+            _ownerships[startTokenId].addr = to;
+            _ownerships[startTokenId].startTimestamp = uint64(block.timestamp);
+
+            uint256 updatedIndex = startTokenId;
 
             for (uint256 i; i < quantity; i++) {
                 emit Transfer(address(0), to, updatedIndex);
@@ -451,12 +456,13 @@ contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IE
                         'not721' // transfer to non ERC721Receiver implementer
                     );
                 }
-                _ownerships[updatedIndex].addr = to;
-                _ownerships[updatedIndex].startTimestamp = uint64(block.timestamp);
+
                 updatedIndex++;
             }
+
             currentIndex = updatedIndex;
         }
+        _afterTokenTransfers(address(0), to, startTokenId, quantity);
     }
 
     /**
@@ -485,6 +491,8 @@ contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IE
         require(prevOwnership.addr == from, 'badowner'); // transfer from incorrect owner
         require(to != address(0), '0x'); //  transfer to the zero address
 
+        _beforeTokenTransfers(from, to, tokenId, 1);
+
         // Clear approvals from the previous owner
         _approve(address(0), tokenId, prevOwnership.addr);
 
@@ -497,9 +505,20 @@ contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IE
 
             _ownerships[tokenId].addr = to;
             _ownerships[tokenId].startTimestamp = uint64(block.timestamp);
+
+            // If the ownership slot of tokenId+1 is not explicitly set, that means the transfer initiator owns it.
+            // Set the slot of tokenId+1 explicitly in storage to maintain correctness for ownerOf(tokenId+1) calls.
+            uint256 nextTokenId = tokenId + 1;
+            if (_ownerships[nextTokenId].addr == address(0)) {
+                if (_exists(nextTokenId)) {
+                    _ownerships[nextTokenId].addr = prevOwnership.addr;
+                    _ownerships[nextTokenId].startTimestamp = prevOwnership.startTimestamp;
+                }
+            }
         }
 
         emit Transfer(from, to, tokenId);
+        _afterTokenTransfers(from, to, tokenId, 1);
     }
 
     /**
@@ -548,4 +567,42 @@ contract Cryptosabers is ERC165, IERC721, IERC721Metadata, IERC721Enumerable, IE
             return true;
         }
     }
+
+    /**
+     * @dev Hook that is called before a set of serially-ordered token ids are about to be transferred. This includes minting.
+     *
+     * startTokenId - the first token id to be transferred
+     * quantity - the amount to be transferred
+     *
+     * Calling conditions:
+     *
+     * - When `from` and `to` are both non-zero, ``from``'s `tokenId` will be
+     * transferred to `to`.
+     * - When `from` is zero, `tokenId` will be minted for `to`.
+     */
+    function _beforeTokenTransfers(
+        address from,
+        address to,
+        uint256 startTokenId,
+        uint256 quantity
+    ) internal virtual {}
+
+    /**
+     * @dev Hook that is called after a set of serially-ordered token ids have been transferred. This includes
+     * minting.
+     *
+     * startTokenId - the first token id to be transferred
+     * quantity - the amount to be transferred
+     *
+     * Calling conditions:
+     *
+     * - when `from` and `to` are both non-zero.
+     * - `from` and `to` are never both zero.
+     */
+    function _afterTokenTransfers(
+        address from,
+        address to,
+        uint256 startTokenId,
+        uint256 quantity
+    ) internal virtual {}
 }
